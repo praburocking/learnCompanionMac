@@ -9,6 +9,7 @@ struct DashboardView: View {
     @State private var collectionToRename: BookCollection?
     @State private var renameText: String = ""
     @State private var showRenameAlert = false
+    @State private var showTagManager = false
     @State private var showingImporter = false
     @State private var showAddCollectionAlert = false
     @State private var newCollectionName = ""
@@ -19,8 +20,6 @@ struct DashboardView: View {
         return [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 20)]
         #else
         // iOS/iPad: Optimize for touch targets and screen width
-        // Reduced to 150 to ensure at least 3 columns on standard Portrait (768/150 ≈ 5)
-        // and avoid single-column fallback.
         return [GridItem(.adaptive(minimum: 150), spacing: 20)]
         #endif
     }
@@ -35,7 +34,7 @@ struct DashboardView: View {
                     ForEach(collections) { collection in
                         NavigationLink(destination: CollectionDetailView(collection: collection)) {
                             CollectionCardView(collection: collection)
-                                .aspectRatio(2/3, contentMode: .fit) // Keep same aspect ratio as books for grid uniformity
+                                .aspectRatio(2/3, contentMode: .fit) // Keep same aspect ratio as books
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
@@ -124,6 +123,9 @@ struct DashboardView: View {
                         Button(action: { showingImporter = true }) {
                             Label("Add File (PDF)", systemImage: "doc.badge.plus")
                         }
+                        Button(action: { showTagManager = true }) {
+                            Label("Manage Tags", systemImage: "tag.fill")
+                        }
                     } label: {
                         Label("Add", systemImage: "plus")
                     }
@@ -141,6 +143,9 @@ struct DashboardView: View {
                 case .failure(let error):
                     print("Import failed: \(error)")
                 }
+            }
+            .sheet(isPresented: $showTagManager) {
+                TagManagementView()
             }
             .alert("Rename Collection", isPresented: $showRenameAlert) {
                 TextField("Collection Name", text: $renameText)
@@ -171,12 +176,6 @@ struct DashboardView: View {
     }
     
     private func deleteCollection(_ collection: BookCollection) {
-         // If we delete collection, books inside are auto-deleted due to cascade rule?
-         // User might expect ungrouping.
-         // Let's ungroup first to be safe, or just allow deletion.
-         // Requirement says "Relationship(deleteRule: .cascade)", so they will be deleted.
-         // If we want to keep them, we should set their collection to nil first.
-         // Let's just delete for now as per "Delete" semantics.
          withAnimation {
              modelContext.delete(collection)
          }
@@ -225,8 +224,6 @@ struct DashboardView: View {
             modelContext.delete(note)
         }
     }
-
-
 }
 
 struct BookReaderWrapper: View {
@@ -253,7 +250,6 @@ struct BookReaderWrapper: View {
             // Handle Navigation
             if let targetID = targetAnnotationID, let vm = viewModel {
                 vm.playVoiceNote(id: targetID)
-                // Also scroll to it? playVoiceNote plays it, but selectAnnotation scrolls.
                 if let note = vm.annotations.first(where: { $0.id == targetID }) {
                      vm.selectAnnotation(note)
                 }

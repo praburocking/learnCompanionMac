@@ -10,24 +10,56 @@ struct TagManagementView: View {
     @Query(sort: \Tag.name) private var tags: [Tag]
     
     @State private var newTagName: String = ""
-    @State private var selectedColor: Color = .blue
+    @State private var selectedColorIndex = 7
+    
+    private let presetColors: [(color: Color, hex: String)] = [
+        (.red, "#FF3B30"),
+        (.orange, "#FF9500"),
+        (.yellow, "#FFCC00"),
+        (.green, "#34C759"),
+        (.mint, "#00C7BE"),
+        (.teal, "#30B0C7"),
+        (.cyan, "#32ADE6"),
+        (.blue, "#007AFF"),
+        (.indigo, "#5856D6"),
+        (.purple, "#AF52DE"),
+        (.pink, "#FF2D55"),
+        (.brown, "#A2845E")
+    ]
     
     var body: some View {
         NavigationStack {
             VStack {
                 // Add Tag Form
-                HStack {
-                    TextField("New Tag Name", text: $newTagName)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    ColorPicker("", selection: $selectedColor)
-                        .labelsHidden()
-                    
-                    Button(action: addTag) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
+                VStack(spacing: 12) {
+                    HStack {
+                         TextField("New Tag Name", text: $newTagName)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        Button(action: addTag) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                        }
+                        .disabled(newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    .disabled(newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                   
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 30))], spacing: 8) {
+                        ForEach(0..<presetColors.count, id: \.self) { index in
+                            Circle()
+                                .fill(presetColors[index].color)
+                                .frame(width: 30, height: 30)
+                                .overlay {
+                                    if index == selectedColorIndex {
+                                        Image(systemName: "checkmark")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                .onTapGesture {
+                                    selectedColorIndex = index
+                                }
+                        }
+                    }
                 }
                 .padding()
                 .background(Color.gray.opacity(0.1))
@@ -59,6 +91,9 @@ struct TagManagementView: View {
             }
             .navigationTitle("Manage Tags")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
@@ -72,11 +107,19 @@ struct TagManagementView: View {
         let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         
-        let colorHex = selectedColor.toHex() ?? "#0000FF"
+        let colorHex = presetColors[selectedColorIndex].hex
         let tag = Tag(name: name, colorHex: colorHex)
         modelContext.insert(tag)
         
+        do {
+            try modelContext.save()
+            print("Tag saved: \(tag.name)")
+        } catch {
+            print("Error saving tag: \(error)")
+        }
+        
         newTagName = ""
+        selectedColorIndex = 7
     }
     
     private func deleteTags(offsets: IndexSet) {
@@ -84,6 +127,7 @@ struct TagManagementView: View {
             for index in offsets {
                 modelContext.delete(tags[index])
             }
+            try? modelContext.save()
         }
     }
 }
